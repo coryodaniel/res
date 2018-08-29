@@ -1,0 +1,9 @@
+{
+  "initial_state": "open",
+  "states": ["open", "reserved", "in use"],
+  "transitions": {
+    "open": "reserved",
+    "reserved": ["in use", "open"],
+    "in use": "open"
+  }
+}
