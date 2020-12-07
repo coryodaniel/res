@@ -31,4 +31,19 @@ defmodule Res.MachineTest do
       {:ok, _} = Res.Machine.transition(state, machine, "in use")
     end) =~ "Entered"
   end
+
+  test "handles named transitions" do
+    machine = Res.Machine.parse("priv/test.json")
+    state = Res.Machine.init(machine)
+    {:ok, state} = Res.Machine.transition(state, machine, "reserved")
+    {:ok, state} = Res.Machine.transition(state, machine, "claim")
+
+    assert state.current_state == "in use"
+  end
+
+  test "named transitions must observe valid transitions" do
+    machine = Res.Machine.parse("priv/test.json")
+    state = Res.Machine.init(machine)
+    assert {:error, _} = Res.Machine.transition(state, machine, "claim")
+  end
 end
