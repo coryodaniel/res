@@ -2,7 +2,7 @@ defmodule Res.Machine do
   @moduledoc """
   Handles creating dynamic machines
   """
-  defstruct [:initial_state, :states, :transitions]
+  defstruct [:initial_state, :states, :valid_transitions, :named_transitions]
   @logger Res.Logger.Memory
   alias Res.Callbacks
 
@@ -22,10 +22,15 @@ defmodule Res.Machine do
             "on_enter" => ["testEnter"]
           }
         },
-        transitions: %{
+        valid_transitions: %{
           "in use" => ["open"],
           "open" => ["reserved"],
           "reserved" => ["in use", "open"]
+        },
+        named_transitions: %{
+          "claim" => %{
+            "to" => "in use"
+          }
         }
       }
   """
@@ -34,7 +39,8 @@ defmodule Res.Machine do
       %Res.Machine{
         initial_state: machine["initial_state"],
         states: machine["states"],
-        transitions: cast_transitions_to_list(machine["transitions"])
+        valid_transitions: cast_transitions_to_list(machine["valid_transitions"]),
+        named_transitions: machine["named_transitions"]
       }
     else
       _ -> IO.puts("Invalid JSON")
@@ -72,16 +78,16 @@ defmodule Res.Machine do
   def transition(
         %Res.State{current_state: current} = state,
         %Res.Machine{} = machine,
-        transition_to
+        transition
       ) do
-    with true <- Enum.member?(machine.transitions[current], transition_to) do
+    with {:ok, transition_to} <- valid_transition_check(transition, machine, current) do
       @logger.log(current, transition_to)
       Callbacks.run(machine.states[current]["on_leave"])
       state = Res.State.transition(state, transition_to)
       Callbacks.run(machine.states[state.current_state]["on_enter"])
       {:ok, state}
     else
-      _ -> {:error, Res.State.invalid(state, transition_to)}
+      {:error, transition_to} -> {:error, Res.State.invalid(state, transition_to)}
     end
   end
 
@@ -93,4 +99,21 @@ defmodule Res.Machine do
 
   defp cast_to_list(values) when is_list(values), do: values
   defp cast_to_list(value), do: [value]
+
+  defp valid_transition_check(transition, machine, current) do
+    transition_to = destination_state_from_named_transition(transition, machine)
+    if(Enum.member?(machine.valid_transitions[current], transition_to)) do
+      {:ok, transition_to}
+    else
+      {:error, transition_to}
+    end
+  end
+
+  defp destination_state_from_named_transition(transition, machine) do
+    with %{"to" => transition_to} <- Map.get(machine.named_transitions, transition) do
+      transition_to
+    else
+      _ -> transition
+    end
+  end
 end

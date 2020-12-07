@@ -9,9 +9,14 @@
       "on_enter": ["testEnter"]
     }
   },
-  "transitions": {
+  "valid_transitions": {
     "open": "reserved",
     "reserved": ["in use", "open"],
     "in use": "open"
+  },
+  "named_transitions" : {
+    "claim": {
+      "to": "in use"
+    }
   }
 }
