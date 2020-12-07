@@ -1,6 +1,14 @@
 {
   "initial_state": "open",
-  "states": ["open", "reserved", "in use"],
+  "states": {
+    "open": null,
+    "reserved": {
+      "on_leave": ["testLeave"] 
+    },
+    "in use": {
+      "on_enter": ["testEnter"]
+    }
+  },
   "transitions": {
     "open": "reserved",
     "reserved": ["in use", "open"],

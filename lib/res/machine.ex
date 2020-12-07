@@ -4,6 +4,7 @@ defmodule Res.Machine do
   """
   defstruct [:initial_state, :states, :transitions]
   @logger Res.Logger.Memory
+  alias Res.Callbacks
 
   @doc """
   Parses a JSON file to a state `Res.Machine`
@@ -11,17 +12,25 @@ defmodule Res.Machine do
   ## Examples
       iex> Res.Machine.parse("priv/test.json")
       %Res.Machine{
-         initial_state: "open",
-         states: ["open", "reserved", "in use"],
-         transitions: %{
-           "in use" => ["open"],
-           "open" => ["reserved"],
-           "reserved" => ["in use", "open"]
-         }
-       }
+        initial_state: "open",
+        states: %{
+          "open" => nil,
+          "reserved" => %{
+            "on_leave" => ["testLeave"]
+          },
+          "in use" => %{
+            "on_enter" => ["testEnter"]
+          }
+        },
+        transitions: %{
+          "in use" => ["open"],
+          "open" => ["reserved"],
+          "reserved" => ["in use", "open"]
+        }
+      }
   """
   def parse(file) do
-    with {:ok, contents} <- File.read(file), {:ok, machine} <- Poison.decode(contents) do
+    with {:ok, contents} <- File.read(file), {:ok, machine} <- Jason.decode(contents) do
       %Res.Machine{
         initial_state: machine["initial_state"],
         states: machine["states"],
@@ -37,7 +46,7 @@ defmodule Res.Machine do
 
   ## Examples
       iex> machine = Res.Machine.parse("priv/test.json")
-      iex> state = Res.Machine.init(machine)
+      iex> _ = Res.Machine.init(machine)
       %Res.State{current_state: "open", previous_state: nil, error: nil}
   """
   def init(%Res.Machine{} = machine), do: Res.State.init(machine.initial_state)
@@ -46,13 +55,13 @@ defmodule Res.Machine do
   Transitions a machine
 
   ## Examples
-      iex> machine = Res.Machine.parse("priv/example.json")
+      iex> machine = Res.Machine.parse("priv/test.json")
       iex> state = Res.Machine.init(machine)
       iex> {:ok, state} = Res.Machine.transition(state, machine, "reserved")
       iex> state.current_state
       "reserved"
 
-      iex> machine = Res.Machine.parse("priv/example.json")
+      iex> machine = Res.Machine.parse("priv/test.json")
       iex> state = Res.Machine.init(machine)
       iex> {:ok, state} = Res.Machine.transition(state, machine, "reserved")
       iex> {:ok, state} = Res.Machine.transition(state, machine, "in use")
@@ -67,7 +76,9 @@ defmodule Res.Machine do
       ) do
     with true <- Enum.member?(machine.transitions[current], transition_to) do
       @logger.log(current, transition_to)
+      Callbacks.run(machine.states[current]["on_leave"])
       state = Res.State.transition(state, transition_to)
+      Callbacks.run(machine.states[state.current_state]["on_enter"])
       {:ok, state}
     else
       _ -> {:error, Res.State.invalid(state, transition_to)}
