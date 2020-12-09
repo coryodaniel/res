@@ -1,9 +1,22 @@
 {
   "initial_state": "open",
-  "states": ["open", "reserved", "in use"],
-  "transitions": {
+  "states": {
+    "open": null,
+    "reserved": {
+      "on_leave": ["testLeave"] 
+    },
+    "in use": {
+      "on_enter": ["testEnter"]
+    }
+  },
+  "valid_transitions": {
     "open": "reserved",
     "reserved": ["in use", "open"],
     "in use": "open"
+  },
+  "named_transitions" : {
+    "claim": {
+      "to": "in use"
+    }
   }
 }
